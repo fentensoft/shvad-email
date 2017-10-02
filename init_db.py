@@ -1,5 +1,6 @@
 import db_utils
 import getpass
+import os
 
 
 smtp_host = input("SMTP server host:")
@@ -19,3 +20,5 @@ sess.add(db_utils.Config(config_key="admin_user", config_value=admin_user))
 sess.add(db_utils.Config(config_key="admin_password", config_value=admin_password))
 sess.commit()
 sess.close()
+
+os.mkdir("attachments")
