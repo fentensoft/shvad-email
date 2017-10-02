@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <title>数萃邮件系统</title>
+    <link rel="stylesheet" href="/static/css/layui.css">
+</head>
+<body>
+<ul class="layui-nav">
+    <li class="layui-nav-item">数萃邮件系统</li>
+</ul>
+<div class="layui-container">
+    <div class="layui-tab">
+        <ul class="layui-tab-title">
+            <li class="layui-this">任务列表</li>
+            <li>新建任务</li>
+            <li>附件管理</li>
+        </ul>
+        <div class="layui-tab-content">
+            <div class="layui-tab-item layui-show">
+                <p>
+                    <button class="layui-btn" onclick="start();">启动Worker</button>
+                    <button class="layui-btn" onclick="clear_done();">清除已完成任务</button>
+                    <button class="layui-btn" onclick="retry();">重试错误任务</button>
+                    <button class="layui-btn layui-btn-danger" onclick="clear_all();">清除所有任务</button>
+                </p>
+                <table class="layui-table" id="app">
+                    <colgroup>
+                        <col width="50">
+                        <col width="300">
+                        <col width="200">
+                        <col>
+                    </colgroup>
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>状态</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="task in tasks">
+                        <td v-text="task.id"></td>
+                        <td v-text="task.task_show_name + ' <' + task.task_from_address + '>'"></td>
+                        <td v-text="task.task_to_address"></td>
+                        <td v-text="task.task_status + ' ' + task.task_msg"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="layui-tab-item">
+                <div class="layui-form-item">
+                    <label class="layui-form-label">发件人名：</label>
+                    <div class="layui-input-block">
+                        <input type="text" id="task_show_name" placeholder="例如：数萃大数据" autocomplete="off"
+                               class="layui-input">
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">发件地址：</label>
+                    <div class="layui-input-block">
+                        <input type="text" id="task_from_address" placeholder="例如：info@promote.shvad.com"
+                               autocomplete="off" class="layui-input">
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">收件列表：</label>
+                    <div class="layui-input-block">
+                        <button class="layui-btn layui-btn-normal" id="btn_upload_list">上传</button>
+                        <span id="list_count"></span>
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">主题：</label>
+                    <div class="layui-input-block">
+                        <input type="text" id="task_subject" placeholder="" autocomplete="off" class="layui-input">
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">内容：</label>
+                    <div class="layui-input-block">
+                        <div id="editor">
+                            <p>在这里编写您的邮件</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">附件：</label>
+                    <div class="layui-input-block">
+                        <button class="layui-btn layui-btn-normal" id="btn_upload_att">添加附件</button>
+                        <span id="atts_list"></span>
+                    </div>
+                </div>
+                <div class="layui-form-item">
+                    <label class="layui-form-label">发送：</label>
+                    <div class="layui-input-block">
+                        <button class="layui-btn" id="btn_queue" onclick="queue();">加入队列</button>
+                        <span id="atts_list"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="layui-tab-item">
+                <table class="layui-table" id="app_att">
+                    <colgroup>
+                        <col width="300">
+                        <col>
+                    </colgroup>
+                    <thead>
+                    <tr>
+                        <th>文件名</th>
+                        <th>操作</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="att in atts">
+                        <td v-text="att"></td>
+                        <td ><button class="layui-btn layui-btn-danger" v-bind:filename="att" onclick="del_att(this);">删除</button></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+<script type='text/javascript' src='/static/zepto.min.js' charset='utf-8'></script>
+<script type='text/javascript' src='/static/vue.min.js' charset='utf-8'></script>
+<script type='text/javascript' src='/static/vue-resource.min.js' charset='utf-8'></script>
+<script type='text/javascript' src='/static/layui.js' charset='utf-8'></script>
+<script type='text/javascript' src='/static/wangEditor.min.js' charset='utf-8'></script>
+<script type="text/javascript">
+    var to_list, atts = [];
+    var editor = new window.wangEditor('#editor');
+    var refresh_data = function () {
+        Vue.http.get("/api/get_tasks").then(function (response) {
+            app.tasks = response.body;
+        });
+        setTimeout(refresh_data, 10000)
+    };
+    var refresh_att = function () {
+        Vue.http.get("/api/get_atts").then(function (response) {
+            app_att.atts = response.body;
+        });
+        setTimeout(refresh_data, 10000)
+    };
+    var app = new Vue({
+        el: '#app',
+        data: {
+            tasks: []
+        },
+        mounted: refresh_data
+    });
+    var app_att = new Vue({
+        el: '#app_att',
+        data: {
+            atts: []
+        },
+        mounted: refresh_att
+    });
+    var del_att = function (sender) {
+        $.get("/api/del_att/" + $(sender).attr("filename"), function() {
+            refresh_att();
+            layer.open({
+                title: '提示'
+                , content: '删除成功'
+            });
+        })
+    };
+    var queue = function () {
+        params = {};
+        params["task_show_name"] = $("#task_show_name").val();
+        params["task_from_address"] = $("#task_from_address").val();
+        params["task_subject"] = $("#task_subject").val();
+        params["task_to_address"] = to_list.join("|");
+        params["task_body"] = editor.txt.html();
+        params["task_atts"] = atts.join("|");
+        $.post("/api/submit", params, function () {
+            location.reload();
+        });
+    };
+    var start = function () {
+        $.get("/api/start_sending", function (res) {
+            refresh_data();
+            layer.open({
+                title: '提示'
+                , content: 'Worker启动，PID：' + res
+            });
+        })
+    };
+    var retry = function () {
+        $.get("/api/requeue", function () {
+            refresh_data();
+            layer.open({
+                title: '提示'
+                , content: '任务已重置'
+            });
+        })
+    };
+    var clear_done = function () {
+        $.get("/api/clear_done", function () {
+            refresh_data();
+            layer.open({
+                title: '提示'
+                , content: '已清除完成任务'
+            });
+        })
+    };
+    var clear_all = function () {
+        $.get("/api/clear_all", function () {
+            refresh_data();
+            layer.open({
+                title: '提示'
+                , content: '已清除全部任务'
+            });
+        })
+    };
+    editor.customConfig.uploadImgShowBase64 = true;
+    editor.create();
+    layui.use('element', function () {
+    });
+    layui.use('upload', function () {
+        var upload = layui.upload;
+        upload.render({
+            elem: '#btn_upload_list',
+            accept: 'file',
+            exts: 'csv|txt',
+            url: '/api/parse_list',
+            done: function (res) {
+                to_list = res;
+                $("#list_count").html("&nbsp;&nbsp;" + res.length + "个收件人");
+            },
+            error: function () {
+                console.log("error")
+            }
+        });
+        upload.render({
+            elem: '#btn_upload_att',
+            accept: 'file',
+            url: '/upload',
+            done: function (res) {
+                atts.push.apply(atts, res);
+                $("#atts_list").html("&nbsp;&nbsp;" + atts.join(","));
+            },
+            error: function () {
+                console.log("error")
+            }
+        });
+    });
+</script>
+</body>
+</html>
